@@ -9,14 +9,40 @@ app.use(cors())
 app.use(express.json()) //req.body
 
 //ROUTES
-app.get('/buses', async (req, res) => {
+app.get('/buses/:datetime/:buffertime', async (req, res) => {
+  const padding2 = (number) => {
+    if (number < 10) return '0' + number
+    return number
+  }
+
   console.log('GET REQUEST ATTEMPTED')
-  const date = '2020-11-28'
-  const time = '11:00:00'
-  const time2 = '13:00:00'
+
+  const { datetime, buffertime } = req.params
+
+  const givenDateTime = new Date(Number(datetime))
+  console.log(givenDateTime)
+
+  const year = givenDateTime.getFullYear()
+  const month = padding2(givenDateTime.getMonth() + 1)
+  const day = padding2(givenDateTime.getDate())
+
+  const hour = givenDateTime.getHours()
+  const minute = padding2(givenDateTime.getMinutes())
+  const seconds = padding2(givenDateTime.getSeconds())
+
+  const hour1 = padding2(hour)
+  const hour2 = padding2(hour + Number(buffertime)) // 1 <= int(buffertime) <= 3
+
+  const date = `${year}-${month}-${day}` //'2020-11-28'
+  const time = `${hour1}:${minute}:${seconds}` //'11:00:00'
+  const time2 = `${hour2}:${minute}:${seconds}` //'13:00:00'
+
+  console.log(date)
+  console.log(time)
+  console.log(time2)
 
   //prettier-ignore
-  const getQuery = 
+  const bigQuery = 
   `\
   DROP TABLE PABT_stop_times; \
   DROP TABLE stop_two_times; \
@@ -66,16 +92,23 @@ app.get('/buses', async (req, res) => {
   //WHERE calendar_dates.the_date = '${date}' and trips.service_id = calendar_dates.service_id; \
 
   try {
-    const routeInfo = await pool.query(getQuery)
-    const answer = await pool.query('SELECT * from answer;')
-    res.json(answer.rows)
+    const routeInfo = await pool.query(bigQuery)
+
+    const smallQuery = `\
+    select departure_time, min(route_short_name) as route_number \
+    from answer \
+    group by departure_time \ 
+    order by departure_time asc; \
+    `
+    const reducedAnswer = await pool.query(smallQuery)
+
+    res.json(reducedAnswer.rows)
   } catch (err) {
     console.error(err.message)
   }
 })
 
-//Get bus routes
-
+// server listen
 const PORT = process.env.PORT || 5000
 app.listen(PORT, () => {
   console.log(`server has started on port ${PORT}`)
