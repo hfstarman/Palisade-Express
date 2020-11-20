@@ -2,7 +2,6 @@ import React, { useState } from 'react'
 import {
   View,
   Text,
-  Button,
   Platform,
   TouchableOpacity,
   ScrollView,
@@ -17,7 +16,7 @@ const App = () => {
   const [mode, setMode] = useState('date')
   const [show, setShow] = useState(false)
 
-  const [routeDate, setRouteData] = useState([])
+  const [routeData, setRouteData] = useState([])
   const [loading, setLoading] = useState(false)
 
   //create a time picker that defaults to current time
@@ -67,21 +66,30 @@ const App = () => {
     return `${day} ${month} ${date.getDate()}`
   }
 
-  const timeString = () => {
-    let hour = date.getHours()
+  const get12hour = (hour) => {
+    const hourNum = Number(hour)
     let antePost = 'AM'
     if (hour >= 12 && hour <= 23) antePost = 'PM'
     if (hour == 0) hour = 12
     if (hour > 12) hour -= 12
 
+    return [hour, antePost]
+  }
+
+  const timeString = () => {
+    let hour = date.getHours()
+    const [hour, antePost] = get12hour(hour)
+
     return `${hour}:${date.getMinutes()} ${antePost}`
   }
 
   const handleSubmit = async () => {
+    const epochString = Math.round(date)
+
     try {
-      let response = await fetch('/buses')
+      let response = await fetch(`/buses/${epochString}/1`)
       let jsonData = await response.json()
-      console.log(jsonData)
+      setRouteData(jsonData)
     } catch (err) {
       console.error(err.message)
     }
@@ -133,9 +141,20 @@ const App = () => {
           </View>
 
           <View style={styles.routeInfoContainer}>
-            <RouteCard time="12:34 PM" busNumber="999" />
-            <RouteCard time="12:34 PM" busNumber="999" />
-            <RouteCard time="12:34 PM" busNumber="999" />
+            {routeData.map((data, index) => {
+              const { departure_time, route_number } = data
+              const [hour24, minutes, seconds] = departure_time.split(':')
+              const [hour12, antePost] = get12hour(hour24)
+              const timeString = `${hour12}:${minutes} ${antePost}`
+
+              return (
+                <RouteCard
+                  key={index}
+                  time={timeString}
+                  busNumber={route_number}
+                />
+              )
+            })}
           </View>
         </View>
       </ScrollView>
